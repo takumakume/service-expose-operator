@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,14 +30,44 @@ type ServiceExposeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ServiceExpose. Edit serviceexpose_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Backend
+	// +kubebuiler:validation:Required
+	Backend networkingv1.IngressBackend `json:"backend"`
+
+	// Path
+	// +kubebuiler:validation:Required
+	Path string `json:"path,omitempty"`
+
+	// PathType
+	// +optional
+	PathType networkingv1.PathType `json:"path_type,omitempty"`
+
+	// Domain
+	// +kubebuiler:validation:Required
+	Domain string `json:"domain"`
+
+	// TLSEnabled
+	// +optional
+	TLSEnabled bool `json:"tls_enable,omitempty"`
+
+	// TLSSecretName
+	// +optional
+	TLSSecretName string `json:"tls_secret_name,omitempty"`
+
+	// Annotations
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ServiceExposeStatus defines the observed state of ServiceExpose
 type ServiceExposeStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	IngressName string                 `json:"ingress_name,omitempty"`
+	IngressHost string                 `json:"ingress_host,omitempty"`
+	Revision    string                 `json:"revision"`
+	Ready       corev1.ConditionStatus `json:"ready"`
 }
 
 //+kubebuilder:object:root=true
