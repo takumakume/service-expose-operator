@@ -1,0 +1,7 @@
+apiVersion: service-expose.takumakume.github.io/v1alpha1
+kind: ServiceExpose
+metadata:
+  name: serviceexpose-sample
+spec:
+  # Add fields here
+  foo: bar

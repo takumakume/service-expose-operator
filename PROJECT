@@ -1,0 +1,19 @@
+domain: takumakume.github.io
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: service-expose-operator
+repo: github.com/takumakume/service-expose-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: takumakume.github.io
+  group: service-expose
+  kind: ServiceExpose
+  path: github.com/takumakume/service-expose-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"
