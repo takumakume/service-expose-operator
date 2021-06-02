@@ -36,7 +36,6 @@ IMAGE_TAG_BASE ?= takumakume.github.io/service-expose-operator
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
 IMG ?= takumakume/service-expose-controller:$(VERSION)
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
