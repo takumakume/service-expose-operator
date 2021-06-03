@@ -235,7 +235,9 @@ func isManagedByServiceExpose(ingress *networkingv1.Ingress) bool {
 }
 
 func generateIngresName(se *serviceexposev1alpha1.ServiceExpose) string {
-	// TODO: support backend type
+	if se.Spec.Backend.Resource.Name != "" {
+		return se.Spec.Backend.Resource.Name
+	}
 	return se.Spec.Backend.Service.Name
 }
 
