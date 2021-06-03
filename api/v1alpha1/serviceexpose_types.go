@@ -31,11 +31,11 @@ type ServiceExposeSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Backend
-	// +kubebuiler:validation:Required
+	// +kubebuilder:validation:Required
 	Backend networkingv1.IngressBackend `json:"backend"`
 
 	// Path
-	// +kubebuiler:validation:Required
+	// +kubebuilder:validation:Required
 	Path string `json:"path,omitempty"`
 
 	// PathType
@@ -43,16 +43,16 @@ type ServiceExposeSpec struct {
 	PathType networkingv1.PathType `json:"pathType,omitempty"`
 
 	// Domain
-	// +kubebuiler:validation:Required
+	// +kubebuilder:validation:Required
 	Domain string `json:"domain"`
 
 	// TLSEnabled
 	// +optional
-	TLSEnabled bool `json:"tls_enable,omitempty"`
+	TLSEnabled bool `json:"tlsEnable,omitempty"`
 
 	// TLSSecretName
 	// +optional
-	TLSSecretName string `json:"tls_secret_name,omitempty"`
+	TLSSecretName string `json:"tlsSecretName,omitempty"`
 
 	// Annotations
 	// +optional
@@ -64,16 +64,19 @@ type ServiceExposeStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	IngressName string                 `json:"ingress_name,omitempty"`
-	IngressHost string                 `json:"ingress_host,omitempty"`
-	Revision    string                 `json:"revision"`
-	Ready       corev1.ConditionStatus `json:"ready"`
+	IngressName string                 `json:"ingressName,omitempty"`
+	IngressHost string                 `json:"ingressHost,omitempty"`
+	Ready       corev1.ConditionStatus `json:"ready,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
 // ServiceExpose is the Schema for the serviceexposes API
+//+kubebuilder:printcolumn:name="Domain",type=string,JSONPath=`.spec.domain`
+//+kubebuilder:printcolumn:name="Ingress Name",type=string,JSONPath=`.status.ingressName`
+//+kubebuilder:printcolumn:name="Ingress Host",type=string,JSONPath=`.status.ingressHost`
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.ready`
 type ServiceExpose struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
