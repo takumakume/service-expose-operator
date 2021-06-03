@@ -193,6 +193,8 @@ func needsUpdateIngress(currentIngress *networkingv1.Ingress, se *serviceexposev
 	switch {
 	case len(currentIngress.Spec.Rules) != 1:
 		return true
+	case *currentIngress.Spec.IngressClassName != se.Spec.IngressClassName:
+		return true
 	case currentIngress.Spec.Rules[0].Host != generateIngresHost(se):
 		return true
 	case len(currentIngress.Spec.Rules[0].HTTP.Paths) != 1:
@@ -255,7 +257,6 @@ func generateIngress(se *serviceexposev1alpha1.ServiceExpose) *networkingv1.Ingr
 			},
 		},
 		Spec: networkingv1.IngressSpec{
-			// TODO: support ingressClassName
 			Rules: []networkingv1.IngressRule{
 				{
 					Host: ingressHost,
@@ -274,6 +275,11 @@ func generateIngress(se *serviceexposev1alpha1.ServiceExpose) *networkingv1.Ingr
 			},
 		},
 	}
+
+	if se.Spec.IngressClassName != "" {
+		ingress.Spec.IngressClassName = &se.Spec.IngressClassName
+	}
+
 	if se.Spec.TLSEnabled {
 		ingress.Spec.TLS = []networkingv1.IngressTLS{
 			{
