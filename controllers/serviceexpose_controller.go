@@ -193,7 +193,9 @@ func needsUpdateIngress(currentIngress *networkingv1.Ingress, se *serviceexposev
 	switch {
 	case len(currentIngress.Spec.Rules) != 1:
 		return true
-	case *currentIngress.Spec.IngressClassName != se.Spec.IngressClassName:
+	case currentIngress.Spec.IngressClassName != nil && *currentIngress.Spec.IngressClassName != se.Spec.IngressClassName:
+		return true
+	case currentIngress.Spec.IngressClassName == nil && se.Spec.IngressClassName != "":
 		return true
 	case currentIngress.Spec.Rules[0].Host != generateIngresHost(se):
 		return true
@@ -235,7 +237,7 @@ func isManagedByServiceExpose(ingress *networkingv1.Ingress) bool {
 }
 
 func generateIngresName(se *serviceexposev1alpha1.ServiceExpose) string {
-	if se.Spec.Backend.Resource.Name != "" {
+	if se.Spec.Backend.Resource != nil && se.Spec.Backend.Resource.Name != "" {
 		return se.Spec.Backend.Resource.Name
 	}
 	return se.Spec.Backend.Service.Name
