@@ -39,7 +39,7 @@ type ServiceExposeSpec struct {
 	Path string `json:"path,omitempty"`
 
 	// PathType networkingv1.HTTPIngressPath.PathType https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L500-L504
-	// +optional
+	// +kubebuilder:validation:Required
 	PathType networkingv1.PathType `json:"pathType,omitempty"`
 
 	// Domain Host domain prefix generated in Ingress
