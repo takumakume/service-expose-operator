@@ -30,31 +30,38 @@ type ServiceExposeSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Backend
+	// Backend networkingv1.IngressBackend https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L511-L524
 	// +kubebuilder:validation:Required
 	Backend networkingv1.IngressBackend `json:"backend"`
 
-	// Path
+	// Path networkingv1.HTTPIngressPath.Path https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L493-L498
 	// +kubebuilder:validation:Required
 	Path string `json:"path,omitempty"`
 
-	// PathType
+	// PathType networkingv1.HTTPIngressPath.PathType https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L500-L504
 	// +optional
 	PathType networkingv1.PathType `json:"pathType,omitempty"`
 
-	// Domain
+	// Domain Host domain prefix generated in Ingress
+	// eg SERVICE_NAME.NAMESPACE.Domain
 	// +kubebuilder:validation:Required
 	Domain string `json:"domain"`
 
-	// TLSEnabled
+	// IngressClassName
+	// +optional
+	IngressClassName string `json:"ingressClassName,omitempty"`
+
+	// TLSEnabled Enable networkingv1.IngressSpec.TLS
+	// https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L269-L276
 	// +optional
 	TLSEnabled bool `json:"tlsEnable,omitempty"`
 
-	// TLSSecretName
+	// TLSSecretName This secret name using networkingv1.IngressTLS.SecretName
+	// https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L376-L382
 	// +optional
 	TLSSecretName string `json:"tlsSecretName,omitempty"`
 
-	// Annotations
+	// Annotations This annotation is generated in Ingress
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
@@ -64,9 +71,14 @@ type ServiceExposeStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	IngressName string                 `json:"ingressName,omitempty"`
-	IngressHost string                 `json:"ingressHost,omitempty"`
-	Ready       corev1.ConditionStatus `json:"ready,omitempty"`
+	// IngressName generated Ingress name
+	IngressName string `json:"ingressName,omitempty"`
+
+	// IngressName generated Ingress host
+	IngressHost string `json:"ingressHost,omitempty"`
+
+	// Ready Ingress generation status
+	Ready corev1.ConditionStatus `json:"ready,omitempty"`
 }
 
 //+kubebuilder:object:root=true

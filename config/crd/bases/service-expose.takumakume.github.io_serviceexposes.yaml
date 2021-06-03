@@ -52,10 +52,10 @@ spec:
               annotations:
                 additionalProperties:
                   type: string
-                description: Annotations
+                description: Annotations This annotation is generated in Ingress
                 type: object
               backend:
-                description: Backend
+                description: Backend networkingv1.IngressBackend https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L511-L524
                 properties:
                   resource:
                     description: Resource is an ObjectRef to another Kubernetes resource
@@ -107,19 +107,23 @@ spec:
                     type: object
                 type: object
               domain:
-                description: Domain
+                description: Domain Host domain prefix generated in Ingress eg SERVICE_NAME.NAMESPACE.Domain
+                type: string
+              ingressClassName:
+                description: IngressClassName
                 type: string
               path:
-                description: Path
+                description: Path networkingv1.HTTPIngressPath.Path https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L493-L498
                 type: string
               pathType:
-                description: PathType
+                description: PathType networkingv1.HTTPIngressPath.PathType https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L500-L504
                 type: string
               tlsEnable:
-                description: TLSEnabled
+                description: TLSEnabled Enable networkingv1.IngressSpec.TLS https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L269-L276
                 type: boolean
               tlsSecretName:
-                description: TLSSecretName
+                description: TLSSecretName This secret name using networkingv1.IngressTLS.SecretName
+                  https://github.com/kubernetes/kubernetes/blob/v1.21.1/pkg/apis/networking/types.go#L376-L382
                 type: string
             required:
             - backend
@@ -129,10 +133,13 @@ spec:
             description: ServiceExposeStatus defines the observed state of ServiceExpose
             properties:
               ingressHost:
+                description: IngressName generated Ingress host
                 type: string
               ingressName:
+                description: IngressName generated Ingress name
                 type: string
               ready:
+                description: Ready Ingress generation status
                 type: string
             type: object
         type: object
