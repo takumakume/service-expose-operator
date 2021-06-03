@@ -1,13 +1,17 @@
 apiVersion: service-expose.takumakume.github.io/v1alpha1
 kind: ServiceExpose
 metadata:
-  name: serviceexpose-sample
+  name: example
 spec:
   backend:
     service:
-      name: service-sample
+      name: example
       port:
         number: 80
   path: /
   pathType: Prefix
   domain: example.com
+  tlsEnable: true
+  tlsSecretName: echoserver-tls
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
