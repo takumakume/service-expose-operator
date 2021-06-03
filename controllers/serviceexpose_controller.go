@@ -29,6 +29,7 @@ import (
 
 	serviceexposev1alpha1 "github.com/takumakume/service-expose-operator/api/v1alpha1"
 
+	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,27 +71,20 @@ func (r *ServiceExposeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return r.stopWithError(err)
 	}
 
-	// finalize
-	// if se.GetDeletionTimestamp() != nil {
-	// 	if controllerutil.ContainsFinalizer(se, serviceExposeFinalizer) {
-	// 		if err := r.finalize(ctx, se); err != nil {
-	// 			return ctrl.Result{}, err
-	// 		}
-	// 		controllerutil.RemoveFinalizer(se, serviceExposeFinalizer)
-	// 	} else {
-	// 		controllerutil.AddFinalizer(se, serviceExposeFinalizer)
-	// 	}
-
-	// 	if err := r.Update(ctx, se); err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
-
 	currentIngress, err := r.getIngress(ctx, se)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			if err := r.createIngress(ctx, se); err != nil {
+				r.Log.Error(err, fmt.Sprintf("create new ingress error. ServiceExpose:%+v", se))
+				se.Status.Ready = corev1.ConditionFalse
+				if statusUpdateError := r.Client.Status().Update(ctx, se); statusUpdateError != nil {
+					r.Log.Error(statusUpdateError, "status update error.")
+				}
 				return r.stopWithError(err)
+			}
+			se.Status.Ready = corev1.ConditionTrue
+			if statusUpdateError := r.Client.Status().Update(ctx, se); statusUpdateError != nil {
+				r.Log.Error(statusUpdateError, "status update error.")
 			}
 			return r.requeue()
 		}
@@ -99,10 +93,23 @@ func (r *ServiceExposeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if needsUpdateIngress(currentIngress, se) {
 		if !isManagedByServiceExpose(currentIngress) {
+			se.Status.Ready = corev1.ConditionFalse
+			if statusUpdateError := r.Client.Status().Update(ctx, se); statusUpdateError != nil {
+				r.Log.Error(statusUpdateError, "status update error.")
+			}
 			return r.stopWithError(fmt.Errorf("This ingress is out of control. Ingress/%s", currentIngress.Name))
 		}
 		if err := r.updateIngress(ctx, se); err != nil {
+			r.Log.Error(err, fmt.Sprintf("update ingress error. ServiceExpose:%+v", se))
+			se.Status.Ready = corev1.ConditionFalse
+			if statusUpdateError := r.Client.Status().Update(ctx, se); statusUpdateError != nil {
+				r.Log.Error(statusUpdateError, "status update error.")
+			}
 			return r.stopWithError(err)
+		}
+		se.Status.Ready = corev1.ConditionTrue
+		if statusUpdateError := r.Client.Status().Update(ctx, se); statusUpdateError != nil {
+			r.Log.Error(statusUpdateError, "status update error.")
 		}
 	}
 
@@ -113,6 +120,7 @@ func (r *ServiceExposeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *ServiceExposeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&serviceexposev1alpha1.ServiceExpose{}).
+		Owns(&networkingv1.Ingress{}).
 		Complete(r)
 }
 
@@ -128,10 +136,6 @@ func (r *ServiceExposeReconciler) stop() (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-// func (r *ServiceExposeReconciler) finalize(ctx context.Context, se *serviceexposev1alpha1.ServiceExpose) error {
-// 	return nil
-// }
-
 func (r *ServiceExposeReconciler) getIngress(ctx context.Context, se *serviceexposev1alpha1.ServiceExpose) (*networkingv1.Ingress, error) {
 	ingress := &networkingv1.Ingress{}
 	if err := r.Get(ctx, types.NamespacedName{Name: se.Status.IngressName, Namespace: se.Namespace}, ingress); err != nil {
@@ -142,30 +146,43 @@ func (r *ServiceExposeReconciler) getIngress(ctx context.Context, se *serviceexp
 }
 
 func (r *ServiceExposeReconciler) createIngress(ctx context.Context, se *serviceexposev1alpha1.ServiceExpose) error {
-	r.Log.Info("creating new ingress")
 	ingress := generateIngress(se)
+
+	if err := ctrl.SetControllerReference(se, ingress, r.Scheme); err != nil {
+		return err
+	}
+
+	r.Log.Info(fmt.Sprintf("creating new ingress. ingress:%+v", ingress))
 	if err := r.Create(ctx, ingress); err != nil {
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("created new ingress: %+v", ingress))
 
-	if err := ctrl.SetControllerReference(se, ingress, r.Scheme); err != nil {
+	se.Status.IngressHost = ingress.Spec.Rules[0].Host
+	se.Status.IngressName = ingress.ObjectMeta.Name
+	if err := r.Client.Status().Update(ctx, se); err != nil {
 		return err
 	}
-	r.Log.Info("set controller reference. owner:%s/%s controlled:%s/%s", se.Kind, se.Name, ingress.Kind, ingress.Name)
 
 	return nil
 }
 
 func (r *ServiceExposeReconciler) updateIngress(ctx context.Context, se *serviceexposev1alpha1.ServiceExpose) error {
-	r.Log.Info("updating ingress")
 	ingress := generateIngress(se)
+
+	if err := ctrl.SetControllerReference(se, ingress, r.Scheme); err != nil {
+		return err
+	}
+
+	r.Log.Info(fmt.Sprintf("updating ingress. ingress:%+v", ingress))
 	if err := r.Update(ctx, ingress); err != nil {
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("update ingress: %+v", ingress))
 
-	if err := ctrl.SetControllerReference(se, ingress, r.Scheme); err != nil {
+	se.Status.IngressHost = ingress.Spec.Rules[0].Host
+	se.Status.IngressName = ingress.ObjectMeta.Name
+	if err := r.Client.Status().Update(ctx, se); err != nil {
 		return err
 	}
 
@@ -188,7 +205,7 @@ func needsUpdateIngress(currentIngress *networkingv1.Ingress, se *serviceexposev
 		return true
 	case len(currentIngress.Spec.TLS) > 0 != se.Spec.TLSEnabled:
 		return true
-	case !reflect.DeepEqual(currentIngress.Annotations, se.Annotations):
+	case !reflect.DeepEqual(currentIngress.Annotations, se.Spec.Annotations):
 		return true
 	}
 
@@ -232,7 +249,7 @@ func generateIngress(se *serviceexposev1alpha1.ServiceExpose) *networkingv1.Ingr
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        ingressName,
 			Namespace:   se.Namespace,
-			Annotations: se.Annotations,
+			Annotations: se.Spec.Annotations,
 			Labels: map[string]string{
 				"app.kubernetes.io/managed-by": managedByServiceExposeLabelValue,
 			},
