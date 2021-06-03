@@ -1,222 +1,9 @@
-
----
-apiVersion: operators.coreos.com/v1alpha1
-kind: ClusterServiceVersion
+apiVersion: v1
+kind: Namespace
 metadata:
-  annotations:
-    alm-examples: |-
-      [
-        {
-          "apiVersion": "service-expose.takumakume.github.io/v1alpha1",
-          "kind": "ServiceExpose",
-          "metadata": {
-            "name": "serviceexpose-sample"
-          },
-          "spec": {
-            "backend": {
-              "service": {
-                "name": "service-sample",
-                "port": {
-                  "number": 80
-                }
-              }
-            },
-            "domain": "example.com",
-            "path": "/",
-            "pathType": "Prefix"
-          }
-        }
-      ]
-    capabilities: Basic Install
-    operators.operatorframework.io/builder: operator-sdk-v1.7.2
-    operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: service-expose-operator.v0.0.1
-  namespace: placeholder
-spec:
-  apiservicedefinitions: {}
-  customresourcedefinitions:
-    owned:
-    - description: ServiceExpose is the Schema for the serviceexposes API
-      displayName: Service Expose
-      kind: ServiceExpose
-      name: serviceexposes.service-expose.takumakume.github.io
-      version: v1alpha1
-  description: Operator to expose service with ingress. Automatically generate hostname like kubernetes service discovery.
-  displayName: service-expose-operator
-  icon:
-  - base64data: ""
-    mediatype: ""
-  install:
-    spec:
-      clusterPermissions:
-      - rules:
-        - apiGroups:
-          - networking.k8s.io
-          resources:
-          - ingresses
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - service-expose.takumakume.github.io
-          resources:
-          - serviceexposes
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - service-expose.takumakume.github.io
-          resources:
-          - serviceexposes/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - service-expose.takumakume.github.io
-          resources:
-          - serviceexposes/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - authentication.k8s.io
-          resources:
-          - tokenreviews
-          verbs:
-          - create
-        - apiGroups:
-          - authorization.k8s.io
-          resources:
-          - subjectaccessreviews
-          verbs:
-          - create
-        serviceAccountName: service-expose-operator-controller-manager
-      deployments:
-      - name: service-expose-operator-controller-manager
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              control-plane: controller-manager
-          strategy: {}
-          template:
-            metadata:
-              labels:
-                control-plane: controller-manager
-            spec:
-              containers:
-              - args:
-                - --secure-listen-address=0.0.0.0:8443
-                - --upstream=http://127.0.0.1:8080/
-                - --logtostderr=true
-                - --v=10
-                image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
-                name: kube-rbac-proxy
-                ports:
-                - containerPort: 8443
-                  name: https
-                resources: {}
-              - args:
-                - --health-probe-bind-address=:8081
-                - --metrics-bind-address=127.0.0.1:8080
-                - --leader-elect
-                command:
-                - /manager
-                image: takumakume/service-expose-controller:0.0.1
-                livenessProbe:
-                  httpGet:
-                    path: /healthz
-                    port: 8081
-                  initialDelaySeconds: 15
-                  periodSeconds: 20
-                name: manager
-                readinessProbe:
-                  httpGet:
-                    path: /readyz
-                    port: 8081
-                  initialDelaySeconds: 5
-                  periodSeconds: 10
-                resources:
-                  limits:
-                    cpu: 100m
-                    memory: 30Mi
-                  requests:
-                    cpu: 100m
-                    memory: 20Mi
-                securityContext:
-                  allowPrivilegeEscalation: false
-              securityContext:
-                runAsNonRoot: true
-              serviceAccountName: service-expose-operator-controller-manager
-              terminationGracePeriodSeconds: 10
-      permissions:
-      - rules:
-        - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
-          - patch
-          - delete
-        - apiGroups:
-          - coordination.k8s.io
-          resources:
-          - leases
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
-          - patch
-          - delete
-        - apiGroups:
-          - ""
-          resources:
-          - events
-          verbs:
-          - create
-          - patch
-        serviceAccountName: service-expose-operator-controller-manager
-    strategy: deployment
-  installModes:
-  - supported: false
-    type: OwnNamespace
-  - supported: false
-    type: SingleNamespace
-  - supported: false
-    type: MultiNamespace
-  - supported: true
-    type: AllNamespaces
-  keywords:
-  - service
-  - ingress
-  links:
-  - name: Service Expose Operator
-    url: https://service-expose-operator.domain
-  maintainers:
-  - email: takuma.kume@gmail.com
-    name: takumakume
-  maturity: alpha
-  provider:
-    name: takumakume
-    url: https://github.com/takumakume/service-expose-operator
-  version: 0.0.1
+  labels:
+    control-plane: controller-manager
+  name: service-expose-operator-system
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -234,7 +21,20 @@ spec:
     singular: serviceexpose
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.domain
+      name: Domain
+      type: string
+    - jsonPath: .status.ingressName
+      name: Ingress Name
+      type: string
+    - jsonPath: .status.ingressHost
+      name: Ingress Host
+      type: string
+    - jsonPath: .status.ready
+      name: Status
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ServiceExpose is the Schema for the serviceexposes API
@@ -304,10 +104,10 @@ spec:
               pathType:
                 description: PathType
                 type: string
-              tls_enable:
+              tlsEnable:
                 description: TLSEnabled
                 type: boolean
-              tls_secret_name:
+              tlsSecretName:
                 description: TLSSecretName
                 type: string
             required:
@@ -317,17 +117,12 @@ spec:
           status:
             description: ServiceExposeStatus defines the observed state of ServiceExpose
             properties:
-              ingress_host:
+              ingressHost:
                 type: string
-              ingress_name:
+              ingressName:
                 type: string
               ready:
                 type: string
-              revision:
-                type: string
-            required:
-            - ready
-            - revision
             type: object
         type: object
     served: true
@@ -344,25 +139,159 @@ status:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  creationTimestamp: null
   name: service-expose-operator-controller-manager
+  namespace: service-expose-operator-system
 ---
-apiVersion: v1
-kind: Service
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: service-expose-operator-leader-election-role
+  namespace: service-expose-operator-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
 metadata:
   creationTimestamp: null
-  labels:
-    control-plane: controller-manager
-  name: service-expose-operator-controller-manager-metrics-service
-spec:
-  ports:
-  - name: https
-    port: 8443
-    targetPort: https
-  selector:
-    control-plane: controller-manager
-status:
-  loadBalancer: {}
+  name: service-expose-operator-manager-role
+rules:
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - service-expose.takumakume.github.io
+  resources:
+  - serviceexposes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - service-expose.takumakume.github.io
+  resources:
+  - serviceexposes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - service-expose.takumakume.github.io
+  resources:
+  - serviceexposes/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: service-expose-operator-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: service-expose-operator-proxy-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: service-expose-operator-leader-election-rolebinding
+  namespace: service-expose-operator-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: service-expose-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: service-expose-operator-controller-manager
+  namespace: service-expose-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: service-expose-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: service-expose-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: service-expose-operator-controller-manager
+  namespace: service-expose-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: service-expose-operator-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: service-expose-operator-proxy-role
+subjects:
+- kind: ServiceAccount
+  name: service-expose-operator-controller-manager
+  namespace: service-expose-operator-system
 ---
 apiVersion: v1
 data:
@@ -381,14 +310,81 @@ data:
 kind: ConfigMap
 metadata:
   name: service-expose-operator-manager-config
+  namespace: service-expose-operator-system
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+apiVersion: v1
+kind: Service
 metadata:
-  creationTimestamp: null
-  name: service-expose-operator-metrics-reader
-rules:
-- nonResourceURLs:
-  - /metrics
-  verbs:
-  - get
+  labels:
+    control-plane: controller-manager
+  name: service-expose-operator-controller-manager-metrics-service
+  namespace: service-expose-operator-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: service-expose-operator-controller-manager
+  namespace: service-expose-operator-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=10
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.8.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+      - args:
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=127.0.0.1:8080
+        - --leader-elect
+        command:
+        - /manager
+        image: takumakume/service-expose-controller:0.0.1
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 100m
+            memory: 30Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: service-expose-operator-controller-manager
+      terminationGracePeriodSeconds: 10

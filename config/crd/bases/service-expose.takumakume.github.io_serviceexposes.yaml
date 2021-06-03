@@ -16,7 +16,20 @@ spec:
     singular: serviceexpose
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.domain
+      name: Domain
+      type: string
+    - jsonPath: .status.ingressName
+      name: Ingress Name
+      type: string
+    - jsonPath: .status.ingressHost
+      name: Ingress Host
+      type: string
+    - jsonPath: .status.ready
+      name: Status
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ServiceExpose is the Schema for the serviceexposes API
@@ -102,10 +115,10 @@ spec:
               pathType:
                 description: PathType
                 type: string
-              tls_enable:
+              tlsEnable:
                 description: TLSEnabled
                 type: boolean
-              tls_secret_name:
+              tlsSecretName:
                 description: TLSSecretName
                 type: string
             required:
@@ -115,17 +128,12 @@ spec:
           status:
             description: ServiceExposeStatus defines the observed state of ServiceExpose
             properties:
-              ingress_host:
+              ingressHost:
                 type: string
-              ingress_name:
+              ingressName:
                 type: string
               ready:
                 type: string
-              revision:
-                type: string
-            required:
-            - ready
-            - revision
             type: object
         type: object
     served: true
