@@ -99,7 +99,7 @@ spec:
               path:
                 description: Path
                 type: string
-              path_type:
+              pathType:
                 description: PathType
                 type: string
               tls_enable:
