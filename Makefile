@@ -150,6 +150,7 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
+	$(MAKE) all-in-one-yaml
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
@@ -199,3 +200,9 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+.PHONY: all-in-one-yaml
+all-in-one-yaml: ## Generate all-in-one yaml
+	@echo "Creating all in one yaml deploy/service-expose-operator.yaml"
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) --stdout > deploy/service-expose-operator.yaml
+	@echo "All in one yaml suceessfully"
