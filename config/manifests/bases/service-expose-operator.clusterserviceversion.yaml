@@ -1,0 +1,49 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: service-expose-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: ServiceExpose is the Schema for the serviceexposes API
+      displayName: Service Expose
+      kind: ServiceExpose
+      name: serviceexposes.service-expose.takumakume.github.io
+      version: v1alpha1
+  description: Operator to expose service with ingress. Automatically generate hostname like kubernetes service discovery.
+  displayName: service-expose-operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - service
+  - ingress
+  links:
+  - name: Service Expose Operator
+    url: https://service-expose-operator.domain
+  maintainers:
+  - email: takuma.kume@gmail.com
+    name: takumakume
+  maturity: alpha
+  provider:
+    name: takumakume
+    url: https://github.com/takumakume/service-expose-operator
+  version: 0.0.0
