@@ -204,5 +204,6 @@ catalog-push: ## Push a catalog image.
 .PHONY: all-in-one-yaml
 all-in-one-yaml: ## Generate all-in-one yaml
 	@echo "Creating all in one yaml deploy/service-expose-operator.yaml"
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS) --stdout > deploy/service-expose-operator.yaml
-	@echo "All in one yaml suceessfully"
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default > deploy/service-expose-operator.yaml
+	@echo "All in one yaml generated suceessfully"
