@@ -236,24 +236,21 @@ func isManagedByServiceExpose(ingress *networkingv1.Ingress) bool {
 	return true
 }
 
-func generateIngresName(se *serviceexposev1alpha1.ServiceExpose) string {
-	if se.Spec.Backend.Resource != nil && se.Spec.Backend.Resource.Name != "" {
-		return se.Spec.Backend.Resource.Name
-	}
-	return se.Spec.Backend.Service.Name
-}
-
 func generateIngresHost(se *serviceexposev1alpha1.ServiceExpose) string {
-	return fmt.Sprintf("%s.%s.%s", generateIngresName(se), se.Namespace, se.Spec.Domain)
+	backendName := ""
+	if se.Spec.Backend.Resource != nil && se.Spec.Backend.Resource.Name != "" {
+		backendName = se.Spec.Backend.Resource.Name
+	}
+	backendName = se.Spec.Backend.Service.Name
+	return fmt.Sprintf("%s.%s.%s", backendName, se.Namespace, se.Spec.Domain)
 }
 
 func generateIngress(se *serviceexposev1alpha1.ServiceExpose) *networkingv1.Ingress {
-	ingressName := generateIngresName(se)
 	ingressHost := generateIngresHost(se)
 
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        ingressName,
+			Name:        fmt.Sprintf("%s-ingress", se.Name),
 			Namespace:   se.Namespace,
 			Annotations: se.Spec.Annotations,
 			Labels: map[string]string{
