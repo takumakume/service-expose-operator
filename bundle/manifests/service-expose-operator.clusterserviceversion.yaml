@@ -8,12 +8,15 @@ metadata:
           "apiVersion": "service-expose.takumakume.github.io/v1alpha1",
           "kind": "ServiceExpose",
           "metadata": {
-            "name": "serviceexpose-sample"
+            "name": "example"
           },
           "spec": {
+            "annotations": {
+              "cert-manager.io/cluster-issuer": "letsencrypt"
+            },
             "backend": {
               "service": {
-                "name": "service-sample",
+                "name": "example",
                 "port": {
                   "number": 80
                 }
@@ -21,14 +24,16 @@ metadata:
             },
             "domain": "example.com",
             "path": "/",
-            "pathType": "Prefix"
+            "pathType": "Prefix",
+            "tlsEnable": true,
+            "tlsSecretName": "echoserver-tls"
           }
         }
       ]
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.7.2
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: service-expose-operator.v0.0.1
+  name: service-expose-operator.v0.0.2
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -130,7 +135,7 @@ spec:
                 - --leader-elect
                 command:
                 - /manager
-                image: takumakume/service-expose-controller:0.0.1
+                image: takumakume/service-expose-controller:0.0.2
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -214,4 +219,4 @@ spec:
   provider:
     name: takumakume
     url: https://github.com/takumakume/service-expose-operator
-  version: 0.0.1
+  version: 0.0.2
