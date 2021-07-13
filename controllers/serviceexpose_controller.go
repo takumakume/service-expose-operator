@@ -17,8 +17,10 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -37,7 +39,7 @@ import (
 
 const managedByServiceExposeLabelValue = "serviceexpose"
 
-//const serviceExposeFinalizer = "service-exposer.github.io/finalizer"
+const ingressHostTemplateAnnotation = "service-expose.takumakume.github.io/host-template"
 
 // ServiceExposeReconciler reconciles a ServiceExpose object
 type ServiceExposeReconciler struct {
@@ -71,10 +73,16 @@ func (r *ServiceExposeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return r.stopWithError(err)
 	}
 
+	newIngress, err := generateIngress(se)
+	if err != nil {
+		r.Log.Error(err, "Ingress spec generation error")
+		return r.stopWithError(err)
+	}
+
 	currentIngress, err := r.getIngress(ctx, se)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if err := r.createIngress(ctx, se); err != nil {
+			if err := r.createIngress(ctx, se, newIngress); err != nil {
 				r.Log.Error(err, fmt.Sprintf("create new ingress error. ServiceExpose:%+v", se))
 				se.Status.Ready = corev1.ConditionFalse
 				if statusUpdateError := r.Client.Status().Update(ctx, se); statusUpdateError != nil {
@@ -91,7 +99,7 @@ func (r *ServiceExposeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return r.stopWithError(err)
 	}
 
-	if needsUpdateIngress(currentIngress, se) {
+	if needsUpdateIngress(currentIngress, newIngress) {
 		if !isManagedByServiceExpose(currentIngress) {
 			se.Status.Ready = corev1.ConditionFalse
 			if statusUpdateError := r.Client.Status().Update(ctx, se); statusUpdateError != nil {
@@ -99,7 +107,7 @@ func (r *ServiceExposeReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			}
 			return r.stopWithError(fmt.Errorf("This ingress is out of control. Ingress/%s", currentIngress.Name))
 		}
-		if err := r.updateIngress(ctx, se); err != nil {
+		if err := r.updateIngress(ctx, se, newIngress); err != nil {
 			r.Log.Error(err, fmt.Sprintf("update ingress error. ServiceExpose:%+v", se))
 			se.Status.Ready = corev1.ConditionFalse
 			if statusUpdateError := r.Client.Status().Update(ctx, se); statusUpdateError != nil {
@@ -145,9 +153,7 @@ func (r *ServiceExposeReconciler) getIngress(ctx context.Context, se *serviceexp
 	return ingress, nil
 }
 
-func (r *ServiceExposeReconciler) createIngress(ctx context.Context, se *serviceexposev1alpha1.ServiceExpose) error {
-	ingress := generateIngress(se)
-
+func (r *ServiceExposeReconciler) createIngress(ctx context.Context, se *serviceexposev1alpha1.ServiceExpose, ingress *networkingv1.Ingress) error {
 	if err := ctrl.SetControllerReference(se, ingress, r.Scheme); err != nil {
 		return err
 	}
@@ -167,9 +173,7 @@ func (r *ServiceExposeReconciler) createIngress(ctx context.Context, se *service
 	return nil
 }
 
-func (r *ServiceExposeReconciler) updateIngress(ctx context.Context, se *serviceexposev1alpha1.ServiceExpose) error {
-	ingress := generateIngress(se)
-
+func (r *ServiceExposeReconciler) updateIngress(ctx context.Context, se *serviceexposev1alpha1.ServiceExpose, ingress *networkingv1.Ingress) error {
 	if err := ctrl.SetControllerReference(se, ingress, r.Scheme); err != nil {
 		return err
 	}
@@ -189,39 +193,39 @@ func (r *ServiceExposeReconciler) updateIngress(ctx context.Context, se *service
 	return nil
 }
 
-func needsUpdateIngress(currentIngress *networkingv1.Ingress, se *serviceexposev1alpha1.ServiceExpose) bool {
+func needsUpdateIngress(currentIngress, newIngress *networkingv1.Ingress) bool {
 	switch {
 	case len(currentIngress.Spec.Rules) != 1:
 		return true
-	case currentIngress.Spec.IngressClassName != nil && *currentIngress.Spec.IngressClassName != se.Spec.IngressClassName:
+	case currentIngress.Spec.IngressClassName == nil && newIngress.Spec.IngressClassName != nil:
 		return true
-	case currentIngress.Spec.IngressClassName == nil && se.Spec.IngressClassName != "":
+	case currentIngress.Spec.IngressClassName != nil && (newIngress.Spec.IngressClassName == nil || *currentIngress.Spec.IngressClassName != *newIngress.Spec.IngressClassName):
 		return true
-	case currentIngress.Spec.Rules[0].Host != generateIngresHost(se):
+	case currentIngress.Spec.Rules[0].Host != newIngress.Spec.Rules[0].Host:
 		return true
 	case len(currentIngress.Spec.Rules[0].HTTP.Paths) != 1:
 		return true
-	case !reflect.DeepEqual(currentIngress.Spec.Rules[0].HTTP.Paths[0].Backend, se.Spec.Backend):
+	case !reflect.DeepEqual(currentIngress.Spec.Rules[0].HTTP.Paths[0].Backend, newIngress.Spec.Rules[0].HTTP.Paths[0].Backend):
 		return true
-	case currentIngress.Spec.Rules[0].HTTP.Paths[0].Path != se.Spec.Path:
+	case currentIngress.Spec.Rules[0].HTTP.Paths[0].Path != newIngress.Spec.Rules[0].HTTP.Paths[0].Path:
 		return true
-	case *currentIngress.Spec.Rules[0].HTTP.Paths[0].PathType != se.Spec.PathType:
+	case *currentIngress.Spec.Rules[0].HTTP.Paths[0].PathType != *newIngress.Spec.Rules[0].HTTP.Paths[0].PathType:
 		return true
-	case len(currentIngress.Spec.TLS) > 0 != se.Spec.TLSEnabled:
+	case len(currentIngress.Spec.TLS) != len(newIngress.Spec.TLS):
 		return true
-	case !reflect.DeepEqual(currentIngress.Annotations, se.Spec.Annotations):
+	case !reflect.DeepEqual(currentIngress.Annotations, newIngress.Annotations):
 		return true
 	}
 
-	if se.Spec.TLSEnabled {
+	if len(newIngress.Spec.TLS) > 0 {
 		switch {
 		case len(currentIngress.Spec.TLS) != 1:
 			return true
 		case len(currentIngress.Spec.TLS[0].Hosts) != 1:
 			return true
-		case currentIngress.Spec.TLS[0].Hosts[0] != generateIngresHost(se):
+		case currentIngress.Spec.TLS[0].Hosts[0] != newIngress.Spec.TLS[0].Hosts[0]:
 			return true
-		case currentIngress.Spec.TLS[0].SecretName != se.Spec.TLSSecretName:
+		case currentIngress.Spec.TLS[0].SecretName != newIngress.Spec.TLS[0].SecretName:
 			return true
 		}
 	}
@@ -236,17 +240,43 @@ func isManagedByServiceExpose(ingress *networkingv1.Ingress) bool {
 	return true
 }
 
-func generateIngresHost(se *serviceexposev1alpha1.ServiceExpose) string {
-	backendName := ""
+func backendName(se *serviceexposev1alpha1.ServiceExpose) string {
 	if se.Spec.Backend.Resource != nil && se.Spec.Backend.Resource.Name != "" {
-		backendName = se.Spec.Backend.Resource.Name
+		return se.Spec.Backend.Resource.Name
 	}
-	backendName = se.Spec.Backend.Service.Name
-	return fmt.Sprintf("%s.%s.%s", backendName, se.Namespace, se.Spec.Domain)
+	return se.Spec.Backend.Service.Name
 }
 
-func generateIngress(se *serviceexposev1alpha1.ServiceExpose) *networkingv1.Ingress {
-	ingressHost := generateIngresHost(se)
+func generateIngresHost(se *serviceexposev1alpha1.ServiceExpose) (string, error) {
+	hostTmpl := "{{ .backendName }}.{{ .namespace }}.{{ .domain }}"
+	if se.Annotations[ingressHostTemplateAnnotation] != "" {
+		hostTmpl = se.Annotations[ingressHostTemplateAnnotation]
+	}
+
+	data := map[string]string{
+		"backendName": backendName(se),
+		"namespace":   se.Namespace,
+		"domain":      se.Spec.Domain,
+	}
+
+	tpl, err := template.New("").Parse(hostTmpl)
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, data); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
+func generateIngress(se *serviceexposev1alpha1.ServiceExpose) (*networkingv1.Ingress, error) {
+	ingressHost, err := generateIngresHost(se)
+	if err != nil {
+		return nil, err
+	}
 
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -290,5 +320,5 @@ func generateIngress(se *serviceexposev1alpha1.ServiceExpose) *networkingv1.Ingr
 		}
 	}
 
-	return ingress
+	return ingress, nil
 }

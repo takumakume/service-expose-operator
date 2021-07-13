@@ -68,6 +68,23 @@ spec:
     secretName: example-tls
 ```
 
+## Annotations
+
+### `service-expose.takumakume.github.io/host-template`
+
+overrides the `Ingress` hostname generation pattern.
+value is in go-template format
+
+default: `{{ .backendName }}.{{ .namespace }}.{{ .domain }}`
+
+*Template variables:*
+
+variable | discription
+---      | ---
+`.backendName` | name of the Service or other resource specified in ServiceExpose
+`.namespace` | value of `.metadata.namespace` in ServiceExpose
+`.domain` | value of `.spec.domain` in ServiceExpose
+
 ## Use case
 
 ### Preview environments
