@@ -15,11 +15,6 @@ import (
 
 var _ = Describe("ServiceExpose controller", func() {
 	const (
-		serviceExposeName = "test-serviceexpose"
-
-		serviceName       = "test-service"
-		servicePort int32 = 80
-
 		timeout  = time.Second * 60
 		duration = time.Second * 30
 		interval = time.Second * 1
@@ -27,6 +22,12 @@ var _ = Describe("ServiceExpose controller", func() {
 
 	Context("When updating ServiceExpose Status", func() {
 		It("Should generate Ingress", func() {
+			const (
+				serviceExposeName       = "test-serviceexpose"
+				serviceName             = "test-service"
+				servicePort       int32 = 80
+			)
+
 			ctx := context.Background()
 
 			By("By creating Service")
@@ -108,6 +109,91 @@ var _ = Describe("ServiceExpose controller", func() {
 			Expect(*createdIngress.Spec.Rules[0].HTTP.Paths[0].PathType).Should(Equal(networkingv1.PathTypePrefix))
 			Expect(createdIngress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name).Should(Equal(serviceName))
 			Expect(createdIngress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Port.Number).Should(Equal(servicePort))
+		})
+
+		It("Should generate Ingress with `host-template` annotation", func() {
+			const (
+				serviceExposeName       = "test-serviceexpose-with-host-template"
+				serviceName             = "test-service-with-host-template"
+				servicePort       int32 = 80
+			)
+
+			ctx := context.Background()
+
+			By("By creating Service")
+			svc := &v1.Service{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Service",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceName,
+					Namespace: "default",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{Port: servicePort},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, svc)).Should(Succeed())
+
+			By("By creating ServiceExpose")
+			seviceexpose := &serviceexposev1alpha1.ServiceExpose{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "service-expose.takumakume.github.io/v1alpha1",
+					Kind:       "ServiceExpose",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceExposeName,
+					Namespace: "default",
+					Annotations: map[string]string{
+						"service-expose.takumakume.github.io/host-template": "{{ .backendName }}-{{ .namespace }}.{{ .domain }}",
+					},
+				},
+				Spec: serviceexposev1alpha1.ServiceExposeSpec{
+					Backend: networkingv1.IngressBackend{
+						Service: &networkingv1.IngressServiceBackend{
+							Name: serviceName,
+							Port: networkingv1.ServiceBackendPort{
+								Number: servicePort,
+							},
+						},
+					},
+					Path:     "/",
+					PathType: networkingv1.PathTypePrefix,
+					Domain:   "example.com",
+				},
+			}
+			Expect(k8sClient.Create(ctx, seviceexpose)).Should(Succeed())
+
+			By("By checking exists ServiceExpose")
+			serviceExposeLookupKey := types.NamespacedName{Name: serviceExposeName, Namespace: "default"}
+			createdServiceExpose := &serviceexposev1alpha1.ServiceExpose{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceExposeLookupKey, createdServiceExpose)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			By("By checking ServiceExpose is ready")
+			Eventually(func() (v1.ConditionStatus, error) {
+				err := k8sClient.Get(ctx, serviceExposeLookupKey, createdServiceExpose)
+				if err != nil {
+					return "", err
+				}
+				return createdServiceExpose.Status.Ready, nil
+			}, duration, interval).Should(Equal(v1.ConditionTrue))
+			Expect(createdServiceExpose.Status.IngressName).Should(Equal("test-serviceexpose-with-host-template-ingress"))
+			Expect(createdServiceExpose.Status.IngressHost).Should(Equal("test-service-with-host-template-default.example.com"))
+
+			By("By checking generated Ingress")
+			ingressLookupKey := types.NamespacedName{Name: createdServiceExpose.Status.IngressName, Namespace: "default"}
+			createdIngress := &networkingv1.Ingress{}
+			Expect(k8sClient.Get(ctx, ingressLookupKey, createdIngress)).Should(Succeed())
+			Expect(createdIngress.Spec.Rules[0].Host).Should(Equal("test-service-with-host-template-default.example.com"))
 		})
 	})
 
